@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Brick Breaker · Spelling Rain</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* --- layout variables (canvas size is calculated from these) --- */
+        :root {
+            --chrome: 200px;
+            /* height used by everything except the canvas */
+            --gutter: 48px;
+            /* horizontal space used by padding around the canvas */
+            --maxw: 720px;
+            /* set by JS: 720px landscape, 480px portrait */
+            --ar: 1.636;
+            /* set by JS: canvas width / height */
+        }
+
+        html,
+        body {
+            height: 100%;
+            overscroll-behavior: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 8px;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            touch-action: none;
+            background: linear-gradient(145deg, #0f172a, #1e293b);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+        }
+
+        .game-wrapper {
+            background: #0b1120;
+            border-radius: 2.5rem;
+            padding: 1rem 1.8rem 1.2rem;
+            max-width: 100%;
+            box-shadow: 0 25px 40px rgba(0, 0, 0, 0.7), inset 0 0 0 1px #334155;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: #111b2e;
+            border-radius: 28px;
+            box-shadow: inset 0 0 0 2px #2d3a4f, 0 12px 28px rgba(0, 0, 0, 0.6);
+            /* fits the smallest of: max size, screen width, screen height */
+            width: min(var(--maxw), calc(100vw - var(--gutter)), calc((100dvh - var(--chrome)) * var(--ar)));
+            height: auto;
+            cursor: none;
+            touch-action: none;
+        }
+
+        .target-word {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+
+        .target-word b {
+            font-size: 1.8rem;
+            margin: 0 4px;
+            color: #facc15;
+        }
+
+        .target-word b.done {
+            color: #4ade80;
+        }
+
+        .target-word b.next {
+            color: #fff;
+            text-decoration: underline;
+            text-underline-offset: 4px;
+        }
+
+        .ui-panel {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin: 10px 8px 0 8px;
+            color: #e2e8f0;
+        }
+
+        .spell-area {
+            background: #1e2a41;
+            padding: 0.6rem 1.8rem;
+            border-radius: 60px;
+            font-size: 1.9rem;
+            font-weight: 700;
+            letter-spacing: 6px;
+            box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.5);
+            min-width: 200px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            color: #b9d0ff;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .badge {
+            background: #1e2a41;
+            padding: 0.4rem 1.2rem;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            box-shadow: inset 0 2px 5px #0f1629;
+            color: #94a3b8;
+        }
+
+        .badge span {
+            color: #facc15;
+            font-weight: 800;
+            margin-left: 6px;
+        }
+
+        button {
+            background: #3b4d6b;
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 40px;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #f1f5f9;
+            box-shadow: 0 6px 0 #1e293b, 0 4px 12px #00000055;
+            transition: 0.08s linear;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        button:active {
+            transform: translateY(5px);
+            box-shadow: 0 1px 0 #1e293b;
+        }
+
+        .hint {
+            color: #7f8ea3;
+            font-size: 0.85rem;
+            margin-top: 8px;
+            text-align: center;
+            letter-spacing: 0.3px;
+        }
+
+        .win-popup {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) scale(0.6);
+            background: #fde68a;
+            color: #7c2d12;
+            padding: 1rem 2rem;
+            border-radius: 30px;
+            font-size: 2rem;
+            font-weight: 800;
+            text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: 0.25s;
+            z-index: 10;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .win-popup.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* red popup used when the game is failed */
+        .win-popup.fail {
+            background: #fecaca;
+            color: #7f1d1d;
+        }
+
+        /* ---------- PHONE, portrait ---------- */
+        @media (max-width: 700px) and (orientation: portrait) {
+            :root {
+                --chrome: 250px;
+                --gutter: 32px;
+            }
+
+            body {
+                padding: 8px;
+            }
+
+            .game-wrapper {
+                padding: 10px 8px 12px;
+                border-radius: 1.4rem;
+            }
+
+            canvas {
+                border-radius: 16px;
+            }
+
+            .target-word {
+                font-size: 0.9rem;
+                margin-bottom: 6px;
+            }
+
+            .target-word b {
+                font-size: 1.4rem;
+                margin: 0 2px;
+            }
+
+            .ui-panel {
+                justify-content: center;
+                margin: 8px 0 0 0;
+            }
+
+            .spell-area {
+                font-size: 1.1rem;
+                letter-spacing: 3px;
+                padding: 0.4rem 1rem;
+                min-width: 0;
+            }
+
+            .status-badge {
+                gap: 12px;
+            }
+
+            .badge {
+                font-size: 1rem;
+                padding: 0.3rem 0.9rem;
+            }
+
+            button {
+                padding: 0.4rem 1.1rem;
+                font-size: 0.95rem;
+            }
+
+            .hint {
+                font-size: 0.75rem;
+                margin-top: 6px;
+            }
+        }
+
+        /* ---------- PHONE, landscape (short screens) ---------- */
+        @media (max-height: 520px) and (orientation: landscape) {
+            :root {
+                --chrome: 96px;
+                --gutter: 32px;
+            }
+
+            body {
+                padding: 4px;
+            }
+
+            .game-wrapper {
+                padding: 6px 12px 8px;
+                border-radius: 1.2rem;
+            }
+
+            canvas {
+                border-radius: 14px;
+            }
+
+            .target-word {
+                font-size: 0.8rem;
+                margin-bottom: 4px;
+            }
+
+            .target-word b {
+                font-size: 1.1rem;
+                margin: 0 2px;
+            }
+
+            .ui-panel {
+                margin: 6px 4px 0 4px;
+            }
+
+            .spell-area {
+                font-size: 1rem;
+                letter-spacing: 3px;
+                padding: 0.25rem 1rem;
+                min-width: 0;
+            }
+
+            .badge {
+                font-size: 0.9rem;
+                padding: 0.2rem 0.8rem;
+            }
+
+            button {
+                padding: 0.3rem 1rem;
+                font-size: 0.85rem;
+                box-shadow: 0 4px 0 #1e293b, 0 3px 8px #00000055;
+            }
+
+            .hint {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="game-wrapper">
+        <div class="win-popup" id="winPopup"></div>
+        <div class="target-word" id="targetWord"></div>
+        <canvas id="gameCanvas" width="720" height="440"></canvas>
+
+        <div class="ui-panel">
+            <div class="spell-area" id="spellDisplay">_ _ _ _ _</div>
+            <div class="status-badge">
+                <div class="badge">🏏 <span id="livesDisplay">3</span></div>
+                <button id="resetButton">↻ new</button>
+            </div>
+        </div>
+        <div class="hint" id="messageHint">⬅️ ➡️ drag to move · catch correct letters, avoid wrong ones</div>
+    </div>
+
+    <script>
+        (function () {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const spellDisplay = document.getElementById('spellDisplay');
+            const livesSpan = document.getElementById('livesDisplay');
+            const msgHint = document.getElementById('messageHint');
+            const rootStyle = document.documentElement.style;
+
+            const HINT_TEXT = '⬅️ ➡️  drag to move · catch correct letters';
+            const HINT_COLOR = '#7f8ea3';
+
+            // ---------- WORDS ----------
+            // small backup list, used only until the big list finishes loading
+            let WORDS = ['APPLE', 'MANGO', 'GRAPE', 'LEMON', 'BERRY', 'PEACH'];
+            let currentWord = '';
+            let LETTERS = [];
+            const usedWords = new Set();
+
+            // ~370,000 English words
+            const WORD_LIST_URL =
+                'https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt';
+
+            fetch(WORD_LIST_URL)
+                .then(r => r.text())
+                .then(text => {
+                    const list = text
+                        .split(/\r?\n/)
+                        .map(w => w.trim().toUpperCase())
+                        .filter(w => /^[A-Z]{3,8}$/.test(w));   // only 3 to 8 letters
+                    if (list.length > 100) WORDS = list;
+                })
+                .catch(() => { /* no internet: keep using the backup list */ });
+
+            function pickRandomWord() {
+                if (usedWords.size >= WORDS.length) usedWords.clear();
+                let w;
+                do {
+                    w = WORDS[Math.floor(Math.random() * WORDS.length)];
+                } while (usedWords.has(w) || (w === currentWord && WORDS.length > 1));
+                usedWords.add(w);
+                currentWord = w;
+                LETTERS = w.split('');
+            }
+
+            let revealed = [];
+            let collectedLetters = [];
+            let nextTimer = null;
+
+            // ---------- GAME STATE ----------
+            let lives = 3;
+            let gameActive = true;
+            const PADDLE_BASE_WIDTH = 96;
+            let paddleWidthDynamic = PADDLE_BASE_WIDTH;
+
+            // ---------- LAYOUT (changes for phone portrait / landscape) ----------
+            let W = 720, H = 440;
+            let layoutMode = '';
+            let BRICK_ROWS = 4, BRICK_COLS = 7;
+            let BRICK_WIDTH = 72;
+            const BRICK_HEIGHT = 24;
+            const BRICK_GAP = 8;
+            const BRICKS_TOP = 48;
+            let BRICKS_LEFT = 0;
+            let PADDLE_Y = 0;
+            const PADDLE_HEIGHT = 14;
+
+            function getMode() {
+                return (window.innerWidth < 700 && window.innerHeight > window.innerWidth)
+                    ? 'portrait' : 'landscape';
+            }
+
+            function setupLayout() {
+                layoutMode = getMode();
+                if (layoutMode === 'portrait') {
+                    W = 400; H = 560;
+                    BRICK_COLS = 5; BRICK_ROWS = 5;
+                    BRICK_WIDTH = (W - 32 - (BRICK_COLS - 1) * BRICK_GAP) / BRICK_COLS;
+                    rootStyle.setProperty('--maxw', '480px');
+                } else {
+                    W = 720; H = 440;
+                    BRICK_COLS = 7; BRICK_ROWS = 4;
+                    BRICK_WIDTH = 72;
+                    rootStyle.setProperty('--maxw', '720px');
+                }
+                canvas.width = W;
+                canvas.height = H;
+                rootStyle.setProperty('--ar', (W / H).toFixed(4));
+                BRICKS_LEFT = (W - (BRICK_COLS * (BRICK_WIDTH + BRICK_GAP) - BRICK_GAP)) / 2;
+                PADDLE_Y = H - 36;
+            }
+
+            // ---------- PADDLE ----------
+            let paddleX = 0;
+
+            // ---------- BALL ----------
+            const BALL_SPEED = 1.5;   // lower = slower (try 1.2 for very slow)
+            const BALL_RADIUS = 10;
+            let ball = { x: 0, y: 0, dx: 0, dy: 0, radius: BALL_RADIUS };
+
+            // ---------- FALLING LETTERS (rain) ----------
+            let fallingLetters = [];
+
+            // ---------- BRICKS ----------
+            let bricks = [];
+
+            const ALL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+            const DECOY_CHANCE = 0.35;   // 0 = only the word's letters, 1 = only decoy letters
+
+            function randomDecoyChar() {
+                // a letter that is NOT in the current word, so catching it is always wrong
+                const pool = ALL_LETTERS.filter(c => !LETTERS.includes(c));
+                return pool[Math.floor(Math.random() * pool.length)];
+            }
+
+            function initBricks() {
+                bricks = [];
+                for (let row = 0; row < BRICK_ROWS; row++) {
+                    for (let col = 0; col < BRICK_COLS; col++) {
+                        const x = BRICKS_LEFT + col * (BRICK_WIDTH + BRICK_GAP);
+                        const y = BRICKS_TOP + row * (BRICK_HEIGHT + BRICK_GAP);
+                        const isDecoy = Math.random() < DECOY_CHANCE;
+                        const letterIndex = Math.floor(Math.random() * LETTERS.length);
+                        bricks.push({
+                            x, y,
+                            w: BRICK_WIDTH,
+                            h: BRICK_HEIGHT,
+                            isDecoy: isDecoy,
+                            char: isDecoy ? randomDecoyChar() : LETTERS[letterIndex],
+                            alive: true,
+                            color: isDecoy
+                                ? `hsl(${0 + row * 6}, 60%, 42%)`                       // decoys look reddish
+                                : `hsl(${220 + row * 20 + col * 12}, 70%, 55%)`
+                        });
+                    }
+                }
+                // make sure every letter of the word is on at least one brick (never a decoy)
+                for (let i = 0; i < LETTERS.length; i++) {
+                    bricks[i * 3].isDecoy = false;
+                    bricks[i * 3].char = LETTERS[i];
+                }
+            }
+
+            // ---------- HELPER: reset ball ----------
+            function resetBall() {
+                ball.x = W / 2;
+                ball.y = PADDLE_Y - BALL_RADIUS - 2;
+                const angle = (Math.random() * 0.8 + 0.3) * (Math.random() > 0.5 ? 1 : -1);
+                ball.dx = Math.sin(angle) * BALL_SPEED;
+                ball.dy = -Math.cos(angle) * BALL_SPEED;
+            }
+
+            // ---------- SOUND ----------
+            // Put these mp3 files in the SAME folder as alphabet.html.
+            // If a file is missing, the browser voice says the words instead.
+            const SOUND_FILES = {
+                win: 'amazing.mp3',       // word complete: "Wow, that's amazing!"
+                fail: 'fail.mp3',         // game over: fail sound
+                tryagain: 'tryagain.mp3'  // plays right after the fail sound: "we need to try again"
+            };
+            const SOUND_TEXT = {          // used only if an mp3 file is missing
+                win: 'Wow, that is amazing!',
+                fail: 'Fail!',
+                tryagain: 'We need to try again!'
+            };
+
+            const clips = {};
+            for (const name in SOUND_FILES) {
+                clips[name] = new Audio(SOUND_FILES[name]);
+                clips[name].preload = 'auto';
+            }
+            clips.fail.playbackRate = 1.4;       // fail sound speed (1 = normal, 1.4 = faster)
+            clips.tryagain.playbackRate = 1.6;   // "try again" voice speed
+
+            let soundTimer = null;
+
+            let seqToken = 0;                      // changes when "new" is pressed, so old sound chains stop
+
+            function makeUtterance(text, rate) {   // browser voice, girl voice if the device has one
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'en-US';
+                u.rate = rate;
+                u.pitch = 1.6;
+                const girl = speechSynthesis.getVoices().find(v =>
+                    /^en/i.test(v.lang) &&
+                    /female|zira|samantha|karen|susan|hazel|jenny|aria|google us english/i.test(v.name));
+                if (girl) u.voice = girl;
+                return u;
+            }
+
+            function speak(text) {                 // says one thing (the caught letter)
+                if (!('speechSynthesis' in window)) return;
+                speechSynthesis.cancel();
+                speechSynthesis.speak(makeUtterance(text, 0.8));
+            }
+
+            function speakList(list, done) {       // says several things one after another, then calls done()
+                const token = seqToken;
+                let finished = false;
+                const finish = () => {
+                    if (finished || token !== seqToken) return;
+                    finished = true;
+                    done();
+                };
+                if (!('speechSynthesis' in window)) { finish(); return; }
+                speechSynthesis.cancel();
+                list.forEach((text, i) => {
+                    const u = makeUtterance(text, 0.7);
+                    if (i === list.length - 1) { u.onend = finish; u.onerror = finish; }
+                    speechSynthesis.speak(u);
+                });
+                setTimeout(finish, list.length * 1000 + 2000);   // safety if the browser never says "end"
+            }
+
+            // play an mp3, then "next" (another sound name, or a function).
+            // overlapMs: start "next" this many milliseconds BEFORE this sound ends (removes the gap).
+            function playSound(name, next, overlapMs) {
+                for (const n in clips) { clips[n].pause(); clips[n].currentTime = 0; clips[n].onended = null; }
+                const token = seqToken;
+                let called = false;
+                const after = () => {
+                    if (called || token !== seqToken || !next) return;
+                    called = true;
+                    if (typeof next === 'function') next(); else playSound(next);
+                };
+                const clip = clips[name];
+                clip.onended = after;
+                clip.play().then(() => {
+                    if (overlapMs !== undefined) {
+                        const waitMs = (clip.duration - clip.currentTime) / clip.playbackRate * 1000 - overlapMs;
+                        setTimeout(after, Math.max(0, waitMs));
+                    }
+                }).catch(() => {                   // file missing or blocked: say it with the browser voice
+                    speak(SOUND_TEXT[name]);
+                    setTimeout(after, 2500);
+                });
+            }
+
+            function playWinSequence() {           // spell the word, say the word, then the girl voice
+                clearTimeout(soundTimer);
+                soundTimer = setTimeout(() => {
+                    speakList([...LETTERS, currentWord], () => {
+                        playSound('win', () => { nextTimer = setTimeout(nextWord, 600); });
+                    });
+                }, 900);                           // wait so the last caught letter can finish
+            }
+
+            function playSoundLater(name, ms, thenName, overlapMs) {   // wait a moment so the letter voice can finish
+                clearTimeout(soundTimer);
+                soundTimer = setTimeout(() => playSound(name, thenName, overlapMs), ms);
+            }
+
+            function stopSounds() {
+                seqToken++;
+                clearTimeout(soundTimer);
+                for (const n in clips) { clips[n].pause(); clips[n].currentTime = 0; clips[n].onended = null; }
+                if ('speechSynthesis' in window) speechSynthesis.cancel();
+            }
+
+            // ---------- POPUP ----------
+            let popupTimer = null;
+
+            function showPopup(html, type, ms) {   // ms = 0 means stay until "new" is pressed
+                const p = document.getElementById('winPopup');
+                clearTimeout(popupTimer);
+                p.className = 'win-popup show ' + type;
+                p.innerHTML = html;
+                if (ms) popupTimer = setTimeout(hidePopup, ms);
+            }
+
+            function hidePopup() {
+                clearTimeout(popupTimer);
+                document.getElementById('winPopup').classList.remove('show');
+            }
+
+            // ---------- next word (after finishing a word) ----------
+            function nextWord() {
+                hidePopup();
+                pickRandomWord();
+                revealed = new Array(LETTERS.length).fill(false);
+                collectedLetters = [];
+                fallingLetters = [];
+                sparks = [];
+                initBricks();
+                resetBall();
+                updateSpellDisplay();
+                gameActive = true;
+                msgHint.innerHTML = HINT_TEXT;
+                msgHint.style.color = HINT_COLOR;
+            }
+
+            // ---------- reset game ----------
+            function resetGame() {
+                clearTimeout(nextTimer);
+                stopSounds();
+                hidePopup();
+                pickRandomWord();
+                lives = 3;
+                gameActive = true;
+                revealed = new Array(LETTERS.length).fill(false);
+                collectedLetters = [];
+                paddleWidthDynamic = PADDLE_BASE_WIDTH;
+                paddleX = (W - paddleWidthDynamic) / 2;
+                fallingLetters = [];
+                sparks = [];
+                initBricks();
+                resetBall();
+                updateSpellDisplay();
+                livesSpan.textContent = lives;
+                msgHint.innerHTML = HINT_TEXT + ', avoid wrong ones';
+                msgHint.style.color = HINT_COLOR;
+            }
+
+            // ---------- UI: update spelling display ----------
+            function updateSpellDisplay() {
+                let display = '';
+                for (let i = 0; i < LETTERS.length; i++) {
+                    display += (revealed[i] ? LETTERS[i] : '_') + ' ';
+                }
+                spellDisplay.textContent = display.trim();
+
+                const nextIndex = revealed.indexOf(false);
+                document.getElementById('targetWord').innerHTML =
+                    'Catch the word: ' +
+                    LETTERS.map((ch, i) => {
+                        const cls = revealed[i] ? 'done' : (i === nextIndex ? 'next' : '');
+                        return `<b class="${cls}">${ch}</b>`;
+                    }).join('');
+            }
+
+            // ---------- try to place letter (called when catching) ----------
+            // Letters must be caught IN ORDER: A, then P, then P, then L, then E.
+            // Returns 'correct'  -> it was the next letter needed, word advances
+            //         'extra'    -> it belongs to the word but was caught out of order,
+            //                       or it's a repeat beyond what the word needs
+            //                       (no life lost, just a little spark)
+            function tryPlaceLetter(char) {
+                const nextIndex = revealed.indexOf(false);
+                if (!gameActive || nextIndex === -1) return 'extra';
+
+                if (LETTERS[nextIndex] === char) {
+                    revealed[nextIndex] = true;
+                    collectedLetters.push(char);
+                    updateSpellDisplay();
+                    if (revealed.every(v => v === true)) {
+                        gameActive = false;
+                        msgHint.innerHTML = '🎉 Word complete! Next word...';
+                        msgHint.style.color = '#4ade80';
+                        showPopup('🎉 ' + currentWord + ' 🎉<br><small>Wow, amazing!</small>', '', 0);
+                        playWinSequence();   // spell word -> say word -> girl voice -> next word
+                    }
+                    return 'correct';
+                }
+                return 'extra';   // right letter, wrong moment — no penalty
+            }
+
+            // ---------- SPARKS (little burst shown for an "extra" catch) ----------
+            let sparks = [];
+
+            function spawnSpark(x, y) {
+                for (let i = 0; i < 10; i++) {
+                    const a = (Math.PI * 2 * i) / 10 + Math.random() * 0.4;
+                    const speed = 1.5 + Math.random() * 2;
+                    sparks.push({
+                        x, y,
+                        vx: Math.cos(a) * speed,
+                        vy: Math.sin(a) * speed,
+                        life: 1
+                    });
+                }
+            }
+
+            function updateSparks() {
+                for (let i = sparks.length - 1; i >= 0; i--) {
+                    const s = sparks[i];
+                    s.x += s.vx;
+                    s.y += s.vy;
+                    s.vy += 0.08;
+                    s.life -= 0.045;
+                    if (s.life <= 0) sparks.splice(i, 1);
+                }
+            }
+
+            function drawSparks() {
+                for (const s of sparks) {
+                    ctx.globalAlpha = Math.max(s.life, 0);
+                    ctx.fillStyle = '#fef08a';
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            // ---------- lose life (wrong letter caught) ----------
+            function loseLife() {
+                if (!gameActive) return;
+                lives--;
+                livesSpan.textContent = lives;
+                // shrink paddle
+                const shrink = 12;
+                if (paddleWidthDynamic - shrink > 30) {
+                    const oldCenter = paddleX + paddleWidthDynamic / 2;
+                    paddleWidthDynamic -= shrink;
+                    paddleX = oldCenter - paddleWidthDynamic / 2;
+                } else {
+                    paddleWidthDynamic = Math.max(30, paddleWidthDynamic - shrink);
+                }
+                if (lives <= 0) {
+                    gameActive = false;
+                    msgHint.innerHTML = '💔 GAME OVER · press "new"';
+                    msgHint.style.color = '#f87171';
+                    lives = 0;
+                    livesSpan.textContent = 0;
+                    showPopup('😢 Fail<br><small>Try again!</small>', 'fail', 0);
+                    playSoundLater('fail', 800, 'tryagain', 700);   // 700 = "try again" starts 0.7 s before the fail sound ends
+                } else {
+                    resetBall();
+                }
+            }
+
+            // ---------- collision: ball & bricks (spawn falling letter) ----------
+            function handleBrickCollision() {
+                if (!gameActive) return;
+
+                for (let i = 0; i < bricks.length; i++) {
+                    const brick = bricks[i];
+                    if (!brick.alive) continue;
+
+                    const bx = brick.x, by = brick.y, bw = brick.w, bh = brick.h;
+
+                    const closestX = Math.max(bx, Math.min(ball.x, bx + bw));
+                    const closestY = Math.max(by, Math.min(ball.y, by + bh));
+                    const distX = ball.x - closestX;
+                    const distY = ball.y - closestY;
+                    const dist = Math.hypot(distX, distY);
+                    if (dist < ball.radius) {
+                        brick.alive = false;
+
+                        // SPAWN FALLING LETTER
+                        fallingLetters.push({
+                            x: brick.x + brick.w / 2,
+                            y: brick.y + brick.h / 2,
+                            char: brick.char,
+                            isDecoy: brick.isDecoy,
+                            speed: 0.9 + Math.random() * 0.5,
+                            radius: 16,
+                            active: true
+                        });
+
+                        // bounce ball
+                        const overlapX = ball.radius - Math.abs(distX);
+                        const overlapY = ball.radius - Math.abs(distY);
+                        if (overlapX < overlapY) {
+                            ball.dx = -ball.dx;
+                        } else {
+                            ball.dy = -ball.dy;
+                        }
+                        if (dist !== 0) {
+                            ball.x += (ball.x - closestX) / dist * 2;
+                            ball.y += (ball.y - closestY) / dist * 2;
+                        }
+                        return;
+                    }
+                }
+            }
+
+            // ---------- update falling letters & paddle catch ----------
+            function updateFallingLetters() {
+                for (let i = fallingLetters.length - 1; i >= 0; i--) {
+                    const fl = fallingLetters[i];
+                    if (!fl.active) continue;
+
+                    // fall
+                    fl.y += fl.speed;
+
+                    // check catch by paddle
+                    const paddleLeft = paddleX;
+                    const paddleRight = paddleX + paddleWidthDynamic;
+                    const paddleTop = PADDLE_Y;
+                    const paddleBottom = PADDLE_Y + PADDLE_HEIGHT;
+
+                    if (fl.y + fl.radius >= paddleTop && fl.y - fl.radius <= paddleBottom &&
+                        fl.x >= paddleLeft && fl.x <= paddleRight) {
+
+                        // caught!
+                        fl.active = false;
+                        const result = fl.isDecoy ? 'wrong' : tryPlaceLetter(fl.char);
+                        speak(fl.char);                       // says the letter, e.g. "A"
+
+                        if (result === 'wrong') {
+                            // not part of the word at all
+                            loseLife();
+                            if (gameActive) {                 // if the game is over, loseLife() already handled it
+                                msgHint.textContent = '❌ wrong letter! life -1';
+                                msgHint.style.color = '#f87171';
+                                setTimeout(() => {
+                                    if (gameActive) {
+                                        msgHint.innerHTML = HINT_TEXT;
+                                        msgHint.style.color = HINT_COLOR;
+                                    }
+                                }, 500);
+                            }
+                        } else if (result === 'extra') {
+                            // part of the word, but caught out of order or not needed anymore — no penalty
+                            spawnSpark(fl.x, fl.y);
+                            msgHint.textContent = '✨ not yet — catch in order!';
+                            msgHint.style.color = '#facc15';
+                            setTimeout(() => {
+                                if (gameActive) {
+                                    msgHint.innerHTML = HINT_TEXT;
+                                    msgHint.style.color = HINT_COLOR;
+                                }
+                            }, 500);
+                        } else if (gameActive) {
+                            msgHint.textContent = '✅ correct letter!';
+                            msgHint.style.color = '#a7f3d0';
+                            setTimeout(() => {
+                                if (gameActive) {
+                                    msgHint.innerHTML = HINT_TEXT;
+                                    msgHint.style.color = HINT_COLOR;
+                                }
+                            }, 400);
+                        }
+                        fallingLetters.splice(i, 1);
+                        continue;
+                    }
+
+                    // if letter falls below screen => remove (missed)
+                    if (fl.y - fl.radius > H) {
+                        fl.active = false;
+                        fallingLetters.splice(i, 1);
+                    }
+                }
+            }
+
+            // ---------- update ----------
+            function update() {
+                if (!gameActive) return;
+
+                // ball movement
+                ball.x += ball.dx;
+                ball.y += ball.dy;
+
+                // wall collisions
+                if (ball.x - ball.radius < 0 || ball.x + ball.radius > W) {
+                    ball.dx = -ball.dx;
+                    ball.x = Math.min(Math.max(ball.x, ball.radius), W - ball.radius);
+                }
+                if (ball.y - ball.radius < 0) {
+                    ball.dy = -ball.dy;
+                    ball.y = ball.radius;
+                }
+
+                // bottom wall => lose life
+                if (ball.y + ball.radius > H) {
+                    loseLife();
+                    if (gameActive) resetBall();
+                    return;
+                }
+
+                // paddle collision
+                const paddleLeft = paddleX;
+                const paddleRight = paddleX + paddleWidthDynamic;
+                const paddleTop = PADDLE_Y;
+                const paddleBottom = PADDLE_Y + PADDLE_HEIGHT;
+
+                if (ball.dy > 0 &&
+                    ball.y + ball.radius >= paddleTop &&
+                    ball.y + ball.radius <= paddleBottom + 8 &&
+                    ball.x >= paddleLeft - 2 && ball.x <= paddleRight + 2) {
+                    const hitPos = (ball.x - paddleX) / paddleWidthDynamic;
+                    const angle = (hitPos - 0.5) * 1.2;
+                    const speed = BALL_SPEED;
+                    ball.dx = Math.sin(angle) * speed;
+                    ball.dy = -Math.cos(angle) * speed;
+                    if (Math.abs(ball.dx) < 0.2) ball.dx = 0.3 * (ball.dx >= 0 ? 1 : -1);
+                    ball.y = paddleTop - ball.radius - 1;
+                }
+
+                // brick collision
+                handleBrickCollision();
+
+                // update falling letters
+                updateFallingLetters();
+
+                // update spark particles
+                updateSparks();
+
+                // refill bricks if all are cleared
+                if (bricks.every(b => !b.alive) && fallingLetters.length === 0) {
+                    initBricks();
+                }
+            }
+
+            // ---------- drawing ----------
+            function draw() {
+                ctx.clearRect(0, 0, W, H);
+
+                // bricks
+                for (const brick of bricks) {
+                    if (!brick.alive) continue;
+                    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+                    ctx.shadowBlur = 8;
+                    ctx.fillStyle = brick.color;
+                    ctx.beginPath();
+                    ctx.roundRect(brick.x, brick.y, brick.w, brick.h, 6);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = '#f1f5f9cc';
+                    ctx.font = 'bold 16px "Segoe UI"';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(brick.char, brick.x + brick.w / 2, brick.y + brick.h / 2);
+                }
+
+                // falling letters
+                for (const fl of fallingLetters) {
+                    if (!fl.active) continue;
+                    // glow
+                    ctx.shadowColor = '#facc15aa';
+                    ctx.shadowBlur = 24;
+                    ctx.beginPath();
+                    ctx.arc(fl.x, fl.y, fl.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#facc15';
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = '#0b1120';
+                    ctx.font = 'bold 18px "Segoe UI"';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(fl.char, fl.x, fl.y + 1);
+                    // small border
+                    ctx.strokeStyle = '#fde047';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(fl.x, fl.y, fl.radius, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                // spark particles
+                drawSparks();
+
+                // paddle
+                ctx.shadowBlur = 16;
+                ctx.shadowColor = '#4f7aff55';
+                ctx.fillStyle = '#b6caff';
+                ctx.beginPath();
+                ctx.roundRect(paddleX, PADDLE_Y, paddleWidthDynamic, PADDLE_HEIGHT, 20);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // ball
+                ctx.shadowBlur = 24;
+                ctx.shadowColor = '#b0d0ffaa';
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#f0f9ff';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#1e2a41';
+                ctx.beginPath();
+                ctx.arc(ball.x - 2, ball.y - 3, 3, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // helper roundRect
+            CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                this.moveTo(x + r, y);
+                this.lineTo(x + w - r, y);
+                this.quadraticCurveTo(x + w, y, x + w, y + r);
+                this.lineTo(x + w, y + h - r);
+                this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+                this.lineTo(x + r, y + h);
+                this.quadraticCurveTo(x, y + h, x, y + h - r);
+                this.lineTo(x, y + r);
+                this.quadraticCurveTo(x, y, x + r, y);
+                this.closePath();
+                return this;
+            };
+
+            // ---------- mouse / touch ----------
+            function handleMove(e) {
+                if (!gameActive) return;
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                let clientX = e.clientX;
+                if (e.touches && e.touches.length) clientX = e.touches[0].clientX;
+                const canvasX = (clientX - rect.left) * scaleX;
+                const half = paddleWidthDynamic / 2;
+                let newX = canvasX - half;
+                if (newX < 0) newX = 0;
+                if (newX + paddleWidthDynamic > W) newX = W - paddleWidthDynamic;
+                paddleX = newX;
+            }
+
+            canvas.addEventListener('mousemove', handleMove);
+
+            // On a phone you can drag anywhere on the screen, so your finger
+            // does not hide the paddle. Taps on the "new" button still work.
+            function onTouch(e) {
+                if (e.target.closest && e.target.closest('button')) return;
+                e.preventDefault();
+                handleMove(e);
+            }
+            document.addEventListener('touchstart', onTouch, { passive: false });
+            document.addEventListener('touchmove', onTouch, { passive: false });
+
+            document.getElementById('resetButton').addEventListener('click', resetGame);
+
+            // ---------- rotate phone / resize window ----------
+            let resizeTimer = null;
+            function onResize() {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    if (getMode() === layoutMode) return;   // canvas already scales with CSS
+                    setupLayout();
+                    fallingLetters = [];
+                    initBricks();
+                    resetBall();
+                    paddleX = Math.min(paddleX, W - paddleWidthDynamic);
+                }, 200);
+            }
+            window.addEventListener('resize', onResize);
+            window.addEventListener('orientationchange', onResize);
+
+            // animation loop
+            function loop() {
+                update();
+                draw();
+                requestAnimationFrame(loop);
+            }
+
+            setupLayout();
+            resetGame();
+            loop();
+        })();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Math Match</title>
+<style>
+:root{--bg1:#0f172a;--bg2:#1e293b;--panel:#0b1120;--card:#1e2a41;--text:#f1f5f9;--muted:#94a3b8;--gold:#facc15;--blue:#b9d0ff;--green:#4ade80;--red:#f87171;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:linear-gradient(145deg,var(--bg1),var(--bg2));font-family:'Segoe UI',Roboto,system-ui,sans-serif;display:flex;justify-content:center;align-items:center;padding:clamp(6px,2vmin,16px);color:var(--text)}
+.wrap{background:var(--panel);border-radius:clamp(16px,4vmin,36px);padding:clamp(10px,2.5vmin,26px);box-shadow:0 25px 40px rgba(0,0,0,.7),inset 0 0 0 1px #334155;width:100%;height:100%;max-width:min(900px,calc((100dvh - 24px)*0.9));max-height:900px;display:flex;flex-direction:column;gap:clamp(6px,1.5vmin,14px)}
+.header{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.title{font-size:clamp(1rem,3.4vmin,1.7rem);font-weight:700;background:#1e2a41;padding:.2rem 1rem;border-radius:60px;color:var(--blue)}
+.tools{display:flex;gap:8px;align-items:center}
+.badge{background:#1e2a41;padding:.2rem .9rem;border-radius:40px;font-weight:600;font-size:clamp(.85rem,2.6vmin,1.2rem);color:var(--muted)}
+.badge span{color:var(--gold);font-weight:800;margin-left:4px}
+button{background:#3b4d6b;border:none;padding:.4rem 1rem;border-radius:40px;font-weight:700;font-size:clamp(.85rem,2.6vmin,1.1rem);color:var(--text);box-shadow:0 4px 0 #1e293b;cursor:pointer;font-family:inherit}
+button:active{transform:translateY(3px);box-shadow:0 1px 0 #1e293b}
+.grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:clamp(6px,1.6vmin,14px)}
+.card{min-width:0;min-height:0;background:var(--card);border-radius:clamp(10px,2.5vmin,22px);display:flex;justify-content:center;align-items:center;text-align:center;font-weight:700;box-shadow:0 clamp(3px,.9vmin,8px) 0 #0f1629;border:2px solid #2d3a4f;cursor:pointer;transition:.1s ease;padding:2px}
+.card .expr{font-size:clamp(1rem,4.4vmin,2rem);color:var(--blue);font-weight:600;white-space:nowrap}
+.card .val{font-size:clamp(1.4rem,6.4vmin,2.8rem);color:var(--gold);font-weight:800}
+.card.matched{opacity:.25;pointer-events:none;transform:scale(.95);filter:grayscale(.6);border-color:var(--green)}
+.card.selected{border:3px solid var(--gold);transform:scale(.96);box-shadow:0 0 20px #facc1566}
+.msg{text-align:center;color:var(--muted);font-size:clamp(.85rem,2.4vmin,1.05rem);min-height:1.4em}
+.msg.ok{color:var(--green)}.msg.bad{color:var(--red)}
+.footer{display:flex;justify-content:space-between;color:#7f8ea3;font-size:clamp(.7rem,2vmin,.9rem);gap:8px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="title">🧮 Math Match</div>
+    <div class="tools">
+      <div class="badge">⭐<span id="pairs">0</span> / 8</div>
+      <button id="sound" title="Sound on/off">🔊</button>
+      <button id="reset">↻ New</button>
+    </div>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="msg" id="msg">Match each sum with its answer</div>
+  <div class="footer"><span>➕ ➖ ✖️ ➗ · tap two cards</span><span id="att">Attempts: 0</span></div>
+</div>
+<script>
+(function(){
+  var PAIRS_COUNT = 8;
+  var grid = document.getElementById('grid'),
+      pairsEl = document.getElementById('pairs'),
+      attEl = document.getElementById('att'),
+      msgEl = document.getElementById('msg'),
+      soundBtn = document.getElementById('sound');
+  var cards = [], sel = null, matched = 0, attempts = 0, done = false, soundOn = true;
+  var audioCtx = null, msgTimer = null;
+
+  function rnd(a, b){ return Math.floor(Math.random() * (b - a + 1)) + a; }
+  function shuffle(arr){
+    for (var i = arr.length - 1; i > 0; i--){
+      var j = rnd(0, i), t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  // Make one random sum. Returns {text, speech, answer}
+  function makeSum(){
+    var op = ['+', '-', '×', '÷'][rnd(0, 3)], a, b, ans;
+    if (op === '+'){ a = rnd(2, 50); b = rnd(2, 50); ans = a + b; return {text: a + ' + ' + b, speech: a + ' plus ' + b, answer: ans}; }
+    if (op === '-'){ a = rnd(10, 60); b = rnd(2, a - 1); ans = a - b; return {text: a + ' - ' + b, speech: a + ' minus ' + b, answer: ans}; }
+    if (op === '×'){ a = rnd(2, 12); b = rnd(2, 12); ans = a * b; return {text: a + ' × ' + b, speech: a + ' times ' + b, answer: ans}; }
+    b = rnd(2, 12); ans = rnd(2, 12); a = b * ans;
+    return {text: a + ' ÷ ' + b, speech: a + ' divided by ' + b, answer: ans};
+  }
+
+  // 8 random sums, all with different answers so every match is unambiguous
+  function makePairs(){
+    var list = [], used = {}, guard = 0;
+    while (list.length < PAIRS_COUNT && guard++ < 1000){
+      var s = makeSum();
+      if (used[s.answer]) continue;
+      used[s.answer] = true;
+      list.push(s);
+    }
+    return list;
+  }
+
+  // ----- sound -----
+  function ctx(){
+    if (!audioCtx){ try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+  function beep(freqs, dur){
+    if (!soundOn) return;
+    var c = ctx(); if (!c) return;
+    freqs.forEach(function(f, i){
+      var o = c.createOscillator(), g = c.createGain(), t = c.currentTime + i * dur;
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.15, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g); g.connect(c.destination);
+      o.start(t); o.stop(t + dur);
+    });
+  }
+  var girlVoice = null;
+  function pickGirlVoice(){
+    if (!('speechSynthesis' in window)) return;
+    var voices = window.speechSynthesis.getVoices() || [];
+    var en = voices.filter(function(v){ return /^en/i.test(v.lang); });
+    var names = /female|zira|samantha|victoria|karen|tessa|moira|fiona|susan|hazel|aria|jenny|libby|sonia|serena|allison|ava|google us english|google uk english female/i;
+    var found = null;
+    for (var i = 0; i < en.length; i++){ if (names.test(en[i].name)){ found = en[i]; break; } }
+    girlVoice = found || en[0] || null;
+  }
+  if ('speechSynthesis' in window){
+    pickGirlVoice();
+    window.speechSynthesis.onvoiceschanged = pickGirlVoice;
+  }
+  function speak(text){
+    if (!soundOn || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      if (!girlVoice) pickGirlVoice();
+      var u = new SpeechSynthesisUtterance(text);
+      if (girlVoice){ u.voice = girlVoice; u.lang = girlVoice.lang; } else { u.lang = 'en-US'; }
+      u.rate = 0.95; u.pitch = 1.25;
+      window.speechSynthesis.speak(u);
+    } catch(e){}
+  }
+
+  function setMsg(text, cls, ms){
+    msgEl.textContent = text; msgEl.className = 'msg ' + (cls || '');
+    clearTimeout(msgTimer);
+    if (ms) msgTimer = setTimeout(function(){
+      if (!done){ msgEl.textContent = 'Match each sum with its answer'; msgEl.className = 'msg'; }
+    }, ms);
+  }
+
+  // ----- render -----
+  function render(){
+    grid.innerHTML = '';
+    cards.forEach(function(c, i){
+      var d = document.createElement('div');
+      d.className = 'card' + (c.matched ? ' matched' : '') + (sel === i && !c.matched ? ' selected' : '');
+      d.innerHTML = c.type === 'expr' ? '<span class="expr">' + c.text + '</span>' : '<span class="val">' + c.text + '</span>';
+      d.addEventListener('click', function(){ onClick(i); });
+      grid.appendChild(d);
+    });
+    pairsEl.textContent = matched;
+    attEl.textContent = 'Attempts: ' + attempts;
+  }
+
+  function onClick(i){
+    if (done) return;
+    ctx(); // unlock audio on first tap
+    var c = cards[i];
+    if (c.matched) return;
+    if (sel === i){ sel = null; render(); return; }
+    if (sel === null){ sel = i; beep([520], 0.08); render(); return; }
+
+    var a = cards[sel], b = c;
+    attempts++;
+    if (a.answer === b.answer && a.type !== b.type){
+      a.matched = b.matched = true;
+      matched++; sel = null;
+      var sum = a.type === 'expr' ? a : b;
+      var sentence = sum.speech + ' are ' + sum.answer;
+      if (matched === PAIRS_COUNT){
+        done = true;
+        setMsg('🎉 You win! All pairs matched! 🎉', 'ok');
+        beep([523, 659, 784, 1047], 0.15);
+        speak(sentence + '. You win!');
+      } else {
+        setMsg('✅ ' + sum.text + ' = ' + sum.answer, 'ok', 1500);
+        beep([660, 880], 0.1);
+        speak(sentence);
+      }
+    } else {
+      sel = null;
+      setMsg('❌ Not a match, try again', 'bad', 800);
+      beep([220], 0.2);
+    }
+    render();
+  }
+
+  function reset(){
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    var deck = [];
+    makePairs().forEach(function(p, i){
+      deck.push({type: 'expr', text: p.text, speech: p.speech, answer: p.answer, matched: false});
+      deck.push({type: 'result', text: String(p.answer), speech: p.speech, answer: p.answer, matched: false});
+    });
+    cards = shuffle(deck);
+    sel = null; matched = 0; attempts = 0; done = false;
+    setMsg('Match each sum with its answer', '');
+    render();
+  }
+
+  soundBtn.addEventListener('click', function(){
+    soundOn = !soundOn;
+    soundBtn.textContent = soundOn ? '🔊' : '🔇';
+    if (!soundOn && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+  });
+  document.getElementById('reset').addEventListener('click', reset);
+  document.addEventListener('keydown', function(e){ if (e.key === 'r' || e.key === 'R') reset(); });
+  reset();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Skill Up · Fun Games for Kids</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0
+    }
+
+    body {
+      font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+      background: linear-gradient(145deg, #0f172a, #1e293b);
+      color: #f1f5f9;
+      overflow: hidden
+    }
+
+    .screen {
+      display: none;
+      position: absolute;
+      inset: 0;
+      padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+      overflow-y: auto;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 16px
+    }
+
+    .screen.active {
+      display: flex
+    }
+
+    h1 {
+      font-size: clamp(2rem, 8vmin, 3.6rem);
+      margin: 0;
+      color: #facc15
+    }
+
+    h2 {
+      margin: 0;
+      color: #b9d0ff;
+      font-size: clamp(1.4rem, 5vmin, 2.2rem)
+    }
+
+    p {
+      margin: 0;
+      color: #94a3b8;
+      font-size: clamp(1rem, 3vmin, 1.3rem);
+      max-width: 520px
+    }
+
+    .logo {
+      font-size: clamp(4rem, 16vmin, 7rem);
+      animation: bob 2s ease-in-out infinite
+    }
+
+    @keyframes bob {
+      50% {
+        transform: translateY(-14px)
+      }
+    }
+
+    .float {
+      position: absolute;
+      font-size: 2rem;
+      opacity: .25;
+      animation: bob 3s ease-in-out infinite
+    }
+
+    button {
+      font-family: inherit;
+      border: none;
+      cursor: pointer;
+      color: #f1f5f9;
+      background: #3b4d6b;
+      font-weight: 700;
+      border-radius: 40px;
+      padding: .7rem 2rem;
+      font-size: 1.1rem;
+      box-shadow: 0 6px 0 #1e293b
+    }
+
+    button:active {
+      transform: translateY(5px);
+      box-shadow: 0 1px 0 #1e293b
+    }
+
+    .big {
+      width: min(340px, 86vw);
+      font-size: clamp(1.2rem, 4vmin, 1.7rem);
+      padding: 1rem 1.5rem
+    }
+
+    .play {
+      background: #16a34a;
+      box-shadow: 0 6px 0 #14532d
+    }
+
+    .prog {
+      background: #2563eb;
+      box-shadow: 0 6px 0 #1e3a8a
+    }
+
+    .set {
+      background: #9333ea;
+      box-shadow: 0 6px 0 #581c87
+    }
+
+    .menu {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      align-items: center
+    }
+
+    .card {
+      background: #0b1120;
+      border-radius: 24px;
+      padding: 16px 20px;
+      box-shadow: inset 0 0 0 1px #334155;
+      width: min(460px, 92vw);
+      text-align: left
+    }
+
+    .bar {
+      height: 12px;
+      background: #1e2a41;
+      border-radius: 20px;
+      overflow: hidden;
+      margin-top: 8px
+    }
+
+    .bar i {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, #facc15, #4ade80);
+      width: 0
+    }
+
+    .small {
+      color: #94a3b8;
+      font-size: .95rem;
+      margin-top: 4px
+    }
+
+    input[type=text] {
+      width: 100%;
+      padding: .7rem 1rem;
+      border-radius: 16px;
+      border: 2px solid #334155;
+      background: #1e2a41;
+      color: #f1f5f9;
+      font-size: 1.1rem;
+      font-family: inherit;
+      user-select: text
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0
+    }
+
+    /* popup */
+    #pick {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .7);
+      z-index: 5;
+      align-items: center;
+      justify-content: center;
+      padding: 16px
+    }
+
+    #pick.show {
+      display: flex
+    }
+
+    .pop {
+      background: #0b1120;
+      border-radius: 28px;
+      padding: 20px;
+      width: min(480px, 100%);
+      max-height: 100%;
+      overflow-y: auto;
+      box-shadow: 0 20px 40px #000a, inset 0 0 0 1px #334155;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      text-align: center
+    }
+
+    .game {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: #1e2a41;
+      padding: 14px 16px;
+      border-radius: 20px;
+      text-align: left;
+      width: 100%;
+      box-shadow: 0 5px 0 #0f1629
+    }
+
+    .game .ic {
+      font-size: 2.6rem
+    }
+
+    .game b {
+      font-size: 1.2rem;
+      display: block
+    }
+
+    .game span {
+      color: #94a3b8;
+      font-size: .95rem;
+      font-weight: 400
+    }
+
+    /* game player */
+    #player {
+      padding: 0;
+      justify-content: flex-start;
+      gap: 0
+    }
+
+    .top {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: max(8px, env(safe-area-inset-top)) 12px 8px;
+      background: #0b1120
+    }
+
+    .top button {
+      padding: .35rem 1.1rem;
+      font-size: 1rem
+    }
+
+    .top b {
+      color: #b9d0ff
+    }
+
+    iframe {
+      flex: 1;
+      width: 100%;
+      border: 0;
+      background: #0f172a
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- 1. INTRO -->
+  <div class="screen active" id="intro">
+    <span class="float" style="left:8%;top:12%">🔤</span><span class="float" style="right:10%;top:18%">➕</span>
+    <span class="float" style="left:14%;bottom:14%">🦆</span><span class="float" style="right:12%;bottom:12%">🧱</span>
+    <div class="logo">🚀</div>
+    <h1>Skill Up</h1>
+    <p>Building children’s skills through play: letters, math and spelling.</p>
+    <button class="big play" id="startBtn">▶ Let’s start</button>
+  </div>
+
+  <!-- 2. HOME -->
+  <div class="screen" id="home">
+    <div class="logo" style="font-size:4rem">🚀</div>
+    <h2 id="hello">Hi, friend!</h2>
+    <div class="menu">
+      <button class="big play" id="btnPlay">🎮 Play</button>
+      <button class="big prog" id="btnProg">📊 Progress</button>
+      <button class="big set" id="btnSet">⚙️ Settings</button>
+    </div>
+  </div>
+
+  <!-- 3. PROGRESS -->
+  <div class="screen" id="progress">
+    <h2>📊 My Progress</h2>
+    <div id="progList" style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%"></div>
+    <button class="back">← Back</button>
+  </div>
+
+  <!-- 4. SETTINGS -->
+  <div class="screen" id="settings">
+    <h2>⚙️ Settings</h2>
+    <div class="card">
+      <label for="nameIn">Child’s name</label>
+      <input type="text" id="nameIn" maxlength="20" placeholder="Type a name">
+      <div class="row"><span>Sound</span><button id="soundBtn">🔊 On</button></div>
+      <div class="row"><span>Erase all progress</span><button id="resetBtn"
+          style="background:#b91c1c;box-shadow:0 6px 0 #7f1d1d">Reset</button></div>
+    </div>
+    <button class="back">← Back</button>
+  </div>
+
+  <!-- 5. GAME PLAYER -->
+  <div class="screen" id="player">
+    <div class="top"><button id="exitBtn">← Back</button><b id="gameTitle"></b></div>
+    <iframe id="frame" title="game" allow="autoplay"></iframe>
+  </div>
+
+  <!-- POPUP: choose a game -->
+  <div id="pick">
+    <div class="pop">
+      <h2>Choose a game</h2>
+      <div id="gameList" style="display:flex;flex-direction:column;gap:12px"></div>
+      <button id="closePick">Close</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // ===== 1. YOUR GAMES: change the file names here if yours are different =====
+      var GAMES = [
+        { id: 'duck', name: 'Duck Hunt ABC', icon: '🦆', skill: 'Learn letters', file: 'Duck Hunt ABC.html' },
+        { id: 'math', name: 'Math Match', icon: '🧮', skill: 'Learn math', file: 'math-match.html' },
+        { id: 'spell', name: 'alphabet', icon: '🧱', skill: 'Learn spelling', file: 'alphabet.html' }
+      ];
+
+      // ===== 2. SAVE / LOAD (browser localStorage) =====
+      var KEY = 'skillup_data';
+      var data = { name: '', sound: true, stats: {} };
+      try { var s = JSON.parse(localStorage.getItem(KEY)); if (s) data = s; } catch (e) { }
+      function save() {
+        try {
+          localStorage.setItem(KEY, JSON.stringify(data));
+          localStorage.setItem('skillup_sound', data.sound ? 'on' : 'off'); // games can read this
+        } catch (e) { }
+      }
+      function stat(id) {
+        if (!data.stats[id]) data.stats[id] = { plays: 0, secs: 0, best: 0 };
+        return data.stats[id];
+      }
+
+      // ===== 3. SCREENS =====
+      var $ = function (id) { return document.getElementById(id); };
+      function show(id) {
+        document.querySelectorAll('.screen').forEach(function (el) { el.classList.remove('active'); });
+        $(id).classList.add('active');
+        if (id === 'home') $('hello').textContent = 'Hi, ' + (data.name || 'friend') + '!';
+        if (id === 'progress') renderProgress();
+        if (id === 'settings') { $('nameIn').value = data.name || ''; showSound(); }
+      }
+      $('startBtn').onclick = function () { show('home'); };
+      $('btnProg').onclick = function () { show('progress'); };
+      $('btnSet').onclick = function () { show('settings'); };
+      document.querySelectorAll('.back').forEach(function (b) { b.onclick = function () { show('home'); }; });
+
+      // ===== 4. PLAY POPUP =====
+      $('btnPlay').onclick = function () { $('pick').classList.add('show'); };
+      $('closePick').onclick = function () { $('pick').classList.remove('show'); };
+      GAMES.forEach(function (g) {
+        var b = document.createElement('button');
+        b.className = 'game';
+        b.innerHTML = '<span class="ic">' + g.icon + '</span><div><b>' + g.name + '</b><span>' + g.skill + '</span></div>';
+        b.onclick = function () { openGame(g); };
+        $('gameList').appendChild(b);
+      });
+
+      // ===== 5. OPEN / CLOSE A GAME =====
+      var current = null, startTime = 0;
+      function openGame(g) {
+        current = g;
+        stat(g.id).plays++;
+        save();
+        startTime = Date.now();
+        $('gameTitle').textContent = g.icon + ' ' + g.name;
+        $('frame').src = g.file;
+        $('pick').classList.remove('show');
+        show('player');
+      }
+      function closeGame() {
+        if (current) {
+          stat(current.id).secs += Math.round((Date.now() - startTime) / 1000);
+          save();
+        }
+        current = null;
+        $('frame').src = 'about:blank';
+        show('home');
+        $('pick').classList.add('show'); // back to the game list
+      }
+      $('exitBtn').onclick = closeGame;
+
+      // Games can send a score: parent.postMessage({type:'skillup-score', game:'duck', score:5}, '*')
+      window.addEventListener('message', function (e) {
+        var m = e.data;
+        if (!m || m.type !== 'skillup-score' || e.source !== $('frame').contentWindow) return;
+        var st = stat(m.game);
+        if (Number(m.score) > st.best) { st.best = Number(m.score); save(); }
+      });
+
+      // ===== 6. PROGRESS PAGE =====
+      function renderProgress() {
+        var box = $('progList');
+        box.innerHTML = '';
+        GAMES.forEach(function (g) {
+          var st = stat(g.id);
+          var mins = Math.floor(st.secs / 60);
+          var pct = Math.min(100, st.plays * 10); // 10 plays = full bar
+          var c = document.createElement('div');
+          c.className = 'card';
+          c.innerHTML = '<b>' + g.icon + ' ' + g.name + '</b>' +
+            '<div class="small">Played: ' + st.plays + ' times · ' + mins + ' min · Best score: ' + st.best + '</div>' +
+            '<div class="bar"><i style="width:' + pct + '%"></i></div>';
+          box.appendChild(c);
+        });
+      }
+
+      // ===== 7. SETTINGS =====
+      $('nameIn').oninput = function () { data.name = this.value.trim(); save(); };
+      function showSound() { $('soundBtn').textContent = data.sound ? '🔊 On' : '🔇 Off'; }
+      $('soundBtn').onclick = function () { data.sound = !data.sound; save(); showSound(); };
+      $('resetBtn').onclick = function () {
+        if (confirm('Erase all progress?')) { data.stats = {}; save(); }
+      };
+
+      save();
+    })();
+  </script>
+</body>
+
+</html>

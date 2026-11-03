@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Duck Hunt · Alphabet Shooting</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        :root {
+            --chrome: 215px;   /* height used by everything except the game picture */
+        }
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+            margin: 0;
+            background: linear-gradient(145deg, #0a0f1a, #1a2a3a);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            padding: 1rem;
+        }
+        .game-wrapper {
+            background: #0b1120;
+            border-radius: 2.5rem;
+            padding: 1.8rem 2rem 2rem;
+            box-shadow: 0 25px 40px rgba(0,0,0,0.8), inset 0 0 0 1px #334155;
+            max-width: 900px;
+            width: 100%;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            color: #e2e8f0;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .title {
+            font-size: 1.7rem;
+            font-weight: 700;
+            background: #1e2a41;
+            padding: 0.2rem 1.8rem;
+            border-radius: 60px;
+            letter-spacing: 1px;
+            box-shadow: inset 0 4px 6px rgba(0,0,0,0.4);
+            color: #b9d0ff;
+        }
+        .score-area {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .badge {
+            background: #1e2a41;
+            padding: 0.3rem 1.4rem;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 1.2rem;
+            box-shadow: inset 0 2px 5px #0f1629;
+            color: #94a3b8;
+        }
+        .badge span {
+            color: #facc15;
+            font-weight: 800;
+            margin-left: 6px;
+        }
+        button {
+            background: #3b4d6b;
+            border: none;
+            padding: 0.5rem 1.8rem;
+            border-radius: 40px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #f1f5f9;
+            box-shadow: 0 6px 0 #1e293b, 0 4px 12px #00000055;
+            transition: 0.08s linear;
+            cursor: pointer;
+        }
+        button:active {
+            transform: translateY(5px);
+            box-shadow: 0 1px 0 #1e293b;
+        }
+        .canvas-wrapper {
+            position: relative;
+            width: min(100%, calc((100dvh - var(--chrome)) * 1.6667));   /* shrinks to fit the screen height */
+            margin: 0 auto;
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: inset 0 0 0 2px #2d3a4f, 0 12px 28px rgba(0,0,0,0.6);
+            background: #1a2a3a;
+            cursor: crosshair;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 800 / 480;
+            background: radial-gradient(ellipse at center, #4a8ec4 0%, #1a4a6a 100%);
+            touch-action: none;
+        }
+        .target-letter {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(11, 17, 32, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 0.6rem 2.5rem;
+            border-radius: 60px;
+            font-size: 3rem;
+            font-weight: 800;
+            color: #facc15;
+            border: 2px solid #facc1566;
+            box-shadow: 0 0 40px #facc1533;
+            letter-spacing: 4px;
+            text-shadow: 0 0 20px #facc1588;
+            pointer-events: none;
+            z-index: 10;
+            font-family: 'Courier New', monospace;
+        }
+        .target-label {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #94a3b8;
+            font-size: 0.85rem;
+            background: rgba(0,0,0,0.5);
+            padding: 0.2rem 1rem;
+            border-radius: 20px;
+            pointer-events: none;
+            z-index: 10;
+            white-space: nowrap;
+        }
+        .message {
+            text-align: center;
+            color: #94a3b8;
+            margin-top: 12px;
+            font-size: 1rem;
+            min-height: 2rem;
+        }
+        .message.success {
+            color: #4ade80;
+        }
+        .message.fail {
+            color: #f87171;
+        }
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .hint {
+            color: #7f8ea3;
+            font-size: 0.85rem;
+        }
+        .lives {
+            color: #facc15;
+            font-size: 1.4rem;
+            letter-spacing: 4px;
+        }
+        .ammo {
+            color: #94a3b8;
+            font-size: 1rem;
+        }
+        @media (max-width: 600px), (max-height: 520px) {
+            :root { --chrome: 150px; }
+            body { padding: 0.4rem; }
+            .game-wrapper { padding: 0.7rem 0.7rem 0.8rem; border-radius: 1.4rem; }
+            .header { margin-bottom: 0.6rem; gap: 6px; }
+            .canvas-wrapper { border-radius: 16px; }
+            .target-letter { font-size: 1.6rem; padding: 0.15rem 1.2rem; top: 8px; letter-spacing: 2px; }
+            .target-label { top: 46px; font-size: 0.65rem; padding: 0.1rem 0.7rem; }
+            .title { font-size: 1.1rem; padding: 0.1rem 0.9rem; }
+            .score-area { gap: 10px; }
+            .badge { font-size: 1rem; padding: 0.2rem 0.9rem; }
+            button { font-size: 0.95rem; padding: 0.35rem 1.1rem; }
+            .message { margin-top: 6px; font-size: 0.9rem; min-height: 1.3rem; }
+            .footer { margin-top: 2px; }
+            .hint { display: none; }
+            .lives { font-size: 1.1rem; letter-spacing: 2px; margin: 0 auto; }
+        }
+    </style>
+</head>
+<body>
+<div class="game-wrapper">
+    <div class="header">
+        <div class="title">🦆 Duck Hunt · ABC</div>
+        <div class="score-area">
+            <div class="badge">🎯 <span id="scoreDisplay">0</span></div>
+            <button id="resetBtn">↻ new</button>
+        </div>
+    </div>
+
+    <div class="canvas-wrapper">
+        <canvas id="gameCanvas" width="800" height="480"></canvas>
+        <div class="target-letter" id="targetLetter">A</div>
+        <div class="target-label" id="targetLabel">🔫 shoot this letter!</div>
+    </div>
+
+    <div class="message" id="gameMessage">🦆 click on the duck with the matching letter!</div>
+    <div class="footer">
+        <span class="hint">🎯 click ducks · miss and lose a life</span>
+        <span class="lives" id="livesDisplay">❤️❤️❤️</span>
+    </div>
+</div>
+
+<script>
+    (function() {
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const targetLetterEl = document.getElementById('targetLetter');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const livesDisplay = document.getElementById('livesDisplay');
+        const gameMessage = document.getElementById('gameMessage');
+
+        // ----- GAME SETTINGS -----
+        const DUCK_COUNT = 6;
+        const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        let ducks = [];
+        let score = 0;
+        let lives = 3;
+        let gameActive = true;
+        let targetLetter = 'A';
+        let animFrameId = null;
+        let isWaiting = false;
+
+        // ----- GIRL VOICE (says the letter you shoot) -----
+        // Uses the voice built into the browser. It prefers a fast, offline girl voice.
+        // (Online "Google" voices are slow and can stay silent, so they are skipped.)
+        let girlVoice = null;
+        const HAS_SPEECH = 'speechSynthesis' in window;
+
+        function loadGirlVoice() {
+            if (!HAS_SPEECH) return;
+            const voices = speechSynthesis.getVoices();
+            if (!voices.length) return;
+            const en = voices.filter(v => /^en/i.test(v.lang));
+            const girlName = /female|zira|samantha|karen|susan|hazel|jenny|aria|ava|allison|victoria|moira|tessa|fiona|catherine/i;
+            girlVoice =
+                en.find(v => v.localService && girlName.test(v.name)) ||
+                en.find(v => girlName.test(v.name) && !/google/i.test(v.name)) ||
+                en.find(v => v.localService) ||
+                en.find(v => !/google/i.test(v.name)) ||
+                en[0] || null;
+        }
+        if (HAS_SPEECH) {
+            loadGirlVoice();
+            speechSynthesis.onvoiceschanged = loadGirlVoice;   // voices load late in some browsers
+        }
+
+        // The first tap wakes up the speech engine, so the first letter is not late.
+        let voiceWarm = false;
+        function warmUpVoice() {
+            if (voiceWarm || !HAS_SPEECH) return;
+            voiceWarm = true;
+            const u = new SpeechSynthesisUtterance(' ');
+            u.volume = 0;
+            speechSynthesis.speak(u);
+        }
+        document.addEventListener('pointerdown', warmUpVoice, { once: true });
+        document.addEventListener('touchstart', warmUpVoice, { once: true, passive: true });
+
+        function sayNow(letter) {
+            const u = new SpeechSynthesisUtterance(letter);
+            u.lang = 'en-US';
+            u.rate = 1.15;                                     // higher = faster (1 = normal)
+            u.pitch = 1.5;                                     // higher = more girl-like
+            u.volume = 1;
+            if (girlVoice) u.voice = girlVoice;
+            speechSynthesis.speak(u);
+        }
+
+        function speakLetter(letter) {
+            if (!HAS_SPEECH) return;
+            if (speechSynthesis.speaking || speechSynthesis.pending) {
+                speechSynthesis.cancel();                      // stop the old letter...
+                setTimeout(() => sayNow(letter), 40);          // ...then speak (needed so Chrome does not drop it)
+            } else {
+                sayNow(letter);                                // nothing playing: speak instantly
+            }
+        }
+
+        // ----- DUCK CLASS -----
+        class Duck {
+            constructor(letter) {
+                this.letter = letter;
+                this.radius = 28;
+                this.x = 40 + Math.random() * (canvas.width - 80);
+                this.y = 80 + Math.random() * (canvas.height - 160);
+                this.dx = (Math.random() - 0.5) * 1.8;
+                this.dy = (Math.random() - 0.5) * 1.8;
+                this.alive = true;
+                this.flap = 0;
+                // random color variation
+                this.hue = 40 + Math.random() * 20; // yellow/orange
+                this.scale = 0.85 + Math.random() * 0.3;
+            }
+
+            update() {
+                if (!this.alive) return;
+                this.x += this.dx;
+                this.y += this.dy;
+                this.flap += 0.08;
+
+                // bounce off walls
+                if (this.x - this.radius < 0 || this.x + this.radius > canvas.width) {
+                    this.dx *= -1;
+                    this.x = Math.min(Math.max(this.x, this.radius), canvas.width - this.radius);
+                }
+                if (this.y - this.radius < 40 || this.y + this.radius > canvas.height - 20) {
+                    this.dy *= -1;
+                    this.y = Math.min(Math.max(this.y, this.radius + 40), canvas.height - this.radius - 20);
+                }
+
+                // random direction change (gentle)
+                if (Math.random() < 0.008) {
+                    this.dx += (Math.random() - 0.5) * 0.4;
+                    this.dy += (Math.random() - 0.5) * 0.4;
+                    const maxSpeed = 2.5;
+                    const speed = Math.hypot(this.dx, this.dy);
+                    if (speed > maxSpeed) {
+                        this.dx = (this.dx / speed) * maxSpeed;
+                        this.dy = (this.dy / speed) * maxSpeed;
+                    }
+                    if (speed < 0.6 && Math.random() < 0.1) {
+                        this.dx += (Math.random() - 0.5) * 1.2;
+                        this.dy += (Math.random() - 0.5) * 1.2;
+                    }
+                }
+            }
+
+            draw(ctx) {
+                if (!this.alive) return;
+                const r = this.radius * this.scale;
+                const x = this.x;
+                const y = this.y + Math.sin(this.flap) * 3;
+
+                // shadow
+                ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                ctx.shadowBlur = 12;
+
+                // body
+                ctx.shadowBlur = 8;
+                const grad = ctx.createRadialGradient(x - 5, y - 8, 5, x, y, r);
+                grad.addColorStop(0, `hsl(${this.hue}, 90%, 75%)`);
+                grad.addColorStop(0.7, `hsl(${this.hue + 10}, 80%, 55%)`);
+                grad.addColorStop(1, `hsl(${this.hue + 20}, 70%, 40%)`);
+                ctx.beginPath();
+                ctx.ellipse(x, y, r * 1.2, r * 0.9, 0, 0, Math.PI * 2);
+                ctx.fillStyle = grad;
+                ctx.fill();
+                ctx.strokeStyle = `hsl(${this.hue + 20}, 60%, 30%)`;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // head
+                ctx.shadowBlur = 4;
+                ctx.beginPath();
+                ctx.arc(x + r * 0.5, y - r * 0.3, r * 0.45, 0, Math.PI * 2);
+                ctx.fillStyle = `hsl(${this.hue + 10}, 85%, 65%)`;
+                ctx.fill();
+                ctx.strokeStyle = `hsl(${this.hue + 20}, 60%, 35%)`;
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
+
+                // eye
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                ctx.arc(x + r * 0.65, y - r * 0.4, r * 0.12, 0, Math.PI * 2);
+                ctx.fillStyle = '#111';
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(x + r * 0.7, y - r * 0.45, r * 0.05, 0, Math.PI * 2);
+                ctx.fillStyle = 'white';
+                ctx.fill();
+
+                // beak
+                ctx.beginPath();
+                ctx.moveTo(x + r * 0.9, y - r * 0.15);
+                ctx.lineTo(x + r * 1.3, y - r * 0.1);
+                ctx.lineTo(x + r * 0.9, y + r * 0.05);
+                ctx.closePath();
+                ctx.fillStyle = '#f59e0b';
+                ctx.fill();
+                ctx.strokeStyle = '#b45309';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // wing
+                ctx.shadowBlur = 6;
+                ctx.beginPath();
+                ctx.ellipse(x - r * 0.2, y + r * 0.1, r * 0.5, r * 0.3, -0.3 + Math.sin(this.flap) * 0.2, 0, Math.PI * 2);
+                ctx.fillStyle = `hsl(${this.hue + 5}, 75%, 50%)`;
+                ctx.fill();
+                ctx.strokeStyle = `hsl(${this.hue + 15}, 60%, 30%)`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // letter on duck (big and clear)
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = `bold ${Math.round(r * 0.9)}px 'Courier New', monospace`;
+                ctx.fillStyle = 'white';
+                ctx.shadowColor = 'rgba(0,0,0,0.7)';
+                ctx.shadowBlur = 14;
+                ctx.fillText(this.letter, x, y + 2);
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#1a2a3a';
+                ctx.font = `bold ${Math.round(r * 0.85)}px 'Courier New', monospace`;
+                ctx.fillText(this.letter, x, y + 1);
+
+                // reset shadow
+                ctx.shadowBlur = 0;
+            }
+
+            contains(mx, my) {
+                if (!this.alive) return false;
+                const dx = mx - this.x;
+                const dy = my - this.y;
+                return (dx * dx + dy * dy) < (this.radius * this.scale * 1.3) ** 2;
+            }
+        }
+
+        // ----- GAME FUNCTIONS -----
+        function generateTarget() {
+            // pick a random letter that appears on at least one duck
+            const available = ducks.filter(d => d.alive).map(d => d.letter);
+            if (available.length === 0) return 'A';
+            const unique = [...new Set(available)];
+            return unique[Math.floor(Math.random() * unique.length)];
+        }
+
+        function spawnDucks() {
+            ducks = [];
+            // assign letters ensuring target appears
+            const shuffled = [...LETTERS].sort(() => Math.random() - 0.5);
+            for (let i = 0; i < DUCK_COUNT; i++) {
+                const letter = shuffled[i % shuffled.length];
+                ducks.push(new Duck(letter));
+            }
+            // make sure at least one duck has target letter
+            targetLetter = generateTarget();
+            // ensure at least 2 ducks have target letter
+            let hasTarget = ducks.filter(d => d.letter === targetLetter).length;
+            if (hasTarget < 2) {
+                ducks[0].letter = targetLetter;
+                ducks[1].letter = targetLetter;
+            }
+            targetLetter = generateTarget();
+            targetLetterEl.textContent = targetLetter;
+        }
+
+        function resetGame() {
+            score = 0;
+            lives = 3;
+            gameActive = true;
+            isWaiting = false;
+            scoreDisplay.textContent = score;
+            livesDisplay.textContent = '❤️'.repeat(lives);
+            gameMessage.textContent = '🦆 click on the duck with the matching letter!';
+            gameMessage.className = 'message';
+            spawnDucks();
+            // reposition ducks
+            ducks.forEach(d => {
+                d.x = 40 + Math.random() * (canvas.width - 80);
+                d.y = 80 + Math.random() * (canvas.height - 160);
+            });
+        }
+
+        function handleShoot(e) {
+            if (!gameActive || isWaiting) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let clientX, clientY;
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+                e.preventDefault();
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            const canvasX = (clientX - rect.left) * scaleX;
+            const canvasY = (clientY - rect.top) * scaleY;
+
+            // check if any duck was hit
+            let hitDuck = null;
+            for (const duck of ducks) {
+                if (duck.alive && duck.contains(canvasX, canvasY)) {
+                    hitDuck = duck;
+                    break;
+                }
+            }
+
+            if (!hitDuck) {
+                // missed!
+                if (!isWaiting) {
+                    lives--;
+                    livesDisplay.textContent = '❤️'.repeat(Math.max(0, lives));
+                    gameMessage.textContent = '💨 Miss! -1 life';
+                    gameMessage.className = 'message fail';
+                    if (lives <= 0) {
+                        gameActive = false;
+                        gameMessage.textContent = '💔 GAME OVER · press "new" to try again';
+                        gameMessage.className = 'message fail';
+                    }
+                }
+                return;
+            }
+
+            // a duck was shot: the girl voice says its letter
+            speakLetter(hitDuck.letter);
+
+            // hit a duck!
+            if (hitDuck.letter === targetLetter) {
+                // correct!
+                hitDuck.alive = false;
+                score++;
+                scoreDisplay.textContent = score;
+                gameMessage.textContent = '🎯 Hit! +1 point';
+                gameMessage.className = 'message success';
+
+                // check if any ducks with target letter remain
+                const remaining = ducks.filter(d => d.alive && d.letter === targetLetter);
+                if (remaining.length === 0) {
+                    // all target ducks shot! spawn new round
+                    isWaiting = true;
+                    gameMessage.textContent = '✨ All matched! New round...';
+                    gameMessage.className = 'message success';
+                    setTimeout(() => {
+                        if (gameActive) {
+                            spawnDucks();
+                            isWaiting = false;
+                            gameMessage.textContent = '🦆 find the new letter!';
+                            gameMessage.className = 'message';
+                        }
+                    }, 700);
+                } else {
+                    // still more target ducks to shoot
+                    gameMessage.textContent = `🎯 ${remaining.length} more to go!`;
+                    gameMessage.className = 'message success';
+                }
+            } else {
+                // wrong duck!
+                hitDuck.alive = false; // duck flies away
+                lives--;
+                livesDisplay.textContent = '❤️'.repeat(Math.max(0, lives));
+                gameMessage.textContent = `❌ Wrong! It was "${hitDuck.letter}", not "${targetLetter}"`;
+                gameMessage.className = 'message fail';
+                if (lives <= 0) {
+                    gameActive = false;
+                    gameMessage.textContent = '💔 GAME OVER · press "new" to try again';
+                    gameMessage.className = 'message fail';
+                }
+                // check if any target ducks remain
+                const remaining = ducks.filter(d => d.alive && d.letter === targetLetter);
+                if (remaining.length === 0 && gameActive) {
+                    setTimeout(() => {
+                        if (gameActive) {
+                            spawnDucks();
+                            gameMessage.textContent = '🦆 new round!';
+                            gameMessage.className = 'message';
+                        }
+                    }, 500);
+                }
+            }
+        }
+
+        // ----- DRAW LOOP -----
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // draw grass/ground
+            ctx.fillStyle = '#2d5a1e';
+            ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
+            ctx.fillStyle = '#3a7a2a';
+            ctx.fillRect(0, canvas.height - 20, canvas.width, 10);
+            // water
+            ctx.fillStyle = '#1a6a8a';
+            ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
+
+            // draw ducks
+            for (const duck of ducks) {
+                duck.update();
+                duck.draw(ctx);
+            }
+
+            // draw remaining target count
+            const remaining = ducks.filter(d => d.alive && d.letter === targetLetter).length;
+            if (gameActive && remaining > 0) {
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                ctx.roundRect(canvas.width - 140, 14, 120, 34, 16);
+                ctx.fill();
+                ctx.fillStyle = '#facc15';
+                ctx.font = 'bold 16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`🎯 ${remaining} left`, canvas.width - 80, 32);
+            }
+
+            // game over overlay
+            if (!gameActive) {
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#f87171';
+                ctx.font = 'bold 48px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('💔 GAME OVER', canvas.width/2, canvas.height/2 - 20);
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '20px sans-serif';
+                ctx.fillText('press "new" to restart', canvas.width/2, canvas.height/2 + 40);
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        // helper roundRect
+        CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+            if (w < 2 * r) r = w / 2;
+            if (h < 2 * r) r = h / 2;
+            this.moveTo(x + r, y);
+            this.lineTo(x + w - r, y);
+            this.quadraticCurveTo(x + w, y, x + w, y + r);
+            this.lineTo(x + w, y + h - r);
+            this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            this.lineTo(x + r, y + h);
+            this.quadraticCurveTo(x, y + h, x, y + h - r);
+            this.lineTo(x, y + r);
+            this.quadraticCurveTo(x, y, x + r, y);
+            this.closePath();
+            return this;
+        };
+
+        // ----- EVENT LISTENERS -----
+        canvas.addEventListener('click', handleShoot);
+        canvas.addEventListener('touchstart', handleShoot, { passive: false });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            resetGame();
+        });
+
+        // keyboard shortcut
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'r' || e.key === 'R') resetGame();
+        });
+
+        // ----- INIT -----
+        resetGame();
+        draw();
+    })();
+</script>
+</body>
+</html>
